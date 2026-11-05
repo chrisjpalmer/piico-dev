@@ -32,34 +32,64 @@ notes = {'C4':262,
          'rest':0, # zero Hertz is the same as no tone at all
          }
 
-interval = 1
-prev_note = 'rest'
-color_read_interval = 500
-hue = ''
-color = ''
-next_color_read = 0
-led_interval = 50
-next_led_off = 0
+def main():
+    interval = 1
+    prev_note = 'rest'
+    hue = ''
+    color = ''
+    next_color_read = 0
+    next_led_off = 0
 
-while True:
-    now = ticks_ms()
+    while True:
+        now = ticks_ms()
 
-    # read the color sensor
+        (did_read, next_color_read, _hue, _color) = read_color_sensor(now, next_color_read)
+
+        if did_read:
+            hue = _hue
+            color = _color
+
+        next_led_off = set_led(now, did_read, next_led_off)
+
+        # read touch button
+        (note, leds_state, tone) = read_buttons_for_tone()
+
+        # buzz a tone
+        prev_note = buzz_tone(prev_note, note, tone)
+
+        # print to the screen
+        show_display_message(note, color, hue)
+
+
+        # toggle peripheral led
+        set_led_array(leds_state)
+        
+
+        sleep_ms(interval)
+
+
+def read_color_sensor(now, next_color_read):
+    color_read_interval = 500
+
     if ticks_diff(next_color_read, now) < 0:
         hue = color_sensor.readHSV()['hue']
         color = color_sensor.classifyHue()
         next_color_read = ticks_add(now, color_read_interval)
-        set_led = True
+        return (True, next_color_read, hue, color)
+    return (False, next_color_read, 0, '')
 
-    # set LED if we want to
-    if set_led:
+def set_led(now, on, next_led_off):
+    led_interval = 50
+
+    if on:
         next_led_off = ticks_add(now, led_interval)
         led.high()
-        set_led = False
     elif ticks_diff(next_led_off, now) < 0:
         led.low()
 
-    # read touch button
+    return next_led_off
+
+def read_buttons_for_tone():
     status = touch.read()
     note = 'rest'
     leds_state = [ 0, 0, 0 ]
@@ -75,12 +105,16 @@ while True:
 
     tone = notes[note]
 
-    # buzz a tone
+    return (note, leds_state, tone)
+
+def buzz_tone(prev_note, note, tone):
     if prev_note != note:
         buzz.tone(tone)
-        prev_note = note
+        return note
 
-    # print to the screen
+    return prev_note
+
+def show_display_message(note, color, hue):
     text = "{0}: {1:.0f}".format(color, hue)
     if note != 'rest':
         text = note
@@ -88,11 +122,10 @@ while True:
     display.text(text, 20, 35, 1)
     display.show()
 
-
-     # toggle peripheral led
+def set_led_array(leds_state):
     leds.setPixel(0, [ 0, leds_state[0] * 255, 0 ] )
     leds.setPixel(1, [ leds_state[1] * 255, 0, 0 ])
     leds.setPixel(2, [ 0, 0, leds_state[2] * 255])
     leds.show()
 
-    sleep_ms(interval)
+main()
