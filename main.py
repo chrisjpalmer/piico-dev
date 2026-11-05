@@ -1,6 +1,5 @@
 from machine import Pin
-
-
+import network
 from utime import ticks_ms, ticks_add, ticks_diff
 from PiicoDev_Unified import sleep_ms
 from PiicoDev_SSD1306 import create_PiicoDev_SSD1306
@@ -8,6 +7,7 @@ from PiicoDev_RGB import PiicoDev_RGB
 from PiicoDev_Buzzer import PiicoDev_Buzzer
 from PiicoDev_CAP1203 import PiicoDev_CAP1203
 from PiicoDev_VEML6040 import PiicoDev_VEML6040
+from http_server import Server
 
 led = Pin("LED", Pin.OUT)
 display = create_PiicoDev_SSD1306()
@@ -40,6 +40,20 @@ def main():
     next_color_read = 0
     next_led_off = 0
 
+    nic = network.WLAN(network.WLAN.IF_STA)
+    nic.active(True)
+    nic.connect('KURIKU', 'mrwifi5678')
+    attempts = 0
+    while not nic.isconnected():
+        if attempts > 3:
+            raise(Exception('could not connect to wifi'))
+        sleep_ms(400)
+        attempt += 1
+    print('connected to wifi!')
+    print(nic.ifconfig())
+
+    # server = Server()
+
     while True:
         now = ticks_ms()
 
@@ -63,7 +77,9 @@ def main():
 
         # toggle peripheral led
         set_led_array(leds_state)
-        
+
+        # listen on server
+        # server.accept(color, hue)
 
         sleep_ms(interval)
 
