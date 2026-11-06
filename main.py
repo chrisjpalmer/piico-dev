@@ -8,6 +8,7 @@ from PiicoDev_Buzzer import PiicoDev_Buzzer
 from PiicoDev_CAP1203 import PiicoDev_CAP1203
 from PiicoDev_VEML6040 import PiicoDev_VEML6040
 from http_server import Server
+import _thread
 
 led = Pin("LED", Pin.OUT)
 display = create_PiicoDev_SSD1306()
@@ -32,14 +33,18 @@ notes = {'C4':262,
          'rest':0, # zero Hertz is the same as no tone at all
          }
 
-def main():
-    interval = 1
-    prev_note = 'rest'
-    hue = ''
-    color = ''
-    next_color_read = 0
-    next_led_off = 0
+g_color = ''
+g_hue = ''
+g_lock = _thread.allocate_lock()
 
+def main():
+    connect_to_wifi()
+
+    _thread.start_new_thread(main_loop, [])
+
+    server_loop()
+
+def connect_to_wifi():
     nic = network.WLAN(network.WLAN.IF_STA)
     nic.active(True)
     nic.connect('<>', '<>')
@@ -48,11 +53,30 @@ def main():
         if attempts > 3:
             raise(Exception('could not connect to wifi'))
         sleep_ms(400)
-        attempt += 1
+        attempts += 1
     print('connected to wifi!')
     print(nic.ifconfig())
 
-    # server = Server()
+def server_loop():
+    def get_color_hue_fn():
+        with g_lock:
+            return (g_color, g_hue)
+        
+    server = Server(get_color_hue_fn)
+
+    while True:
+        server.accept()
+
+def main_loop():
+    global g_hue
+    global g_color
+
+    interval = 1
+    prev_note = 'rest'
+    hue = ''
+    color = ''
+    next_color_read = 0
+    next_led_off = 0
 
     while True:
         now = ticks_ms()
@@ -62,6 +86,9 @@ def main():
         if did_read:
             hue = _hue
             color = _color
+            with g_lock:
+                g_hue = _hue
+                g_color = _color
 
         next_led_off = set_led(now, did_read, next_led_off)
 
@@ -77,9 +104,6 @@ def main():
 
         # toggle peripheral led
         set_led_array(leds_state)
-
-        # listen on server
-        # server.accept(color, hue)
 
         sleep_ms(interval)
 
