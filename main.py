@@ -8,6 +8,7 @@ from PiicoDev_Buzzer import PiicoDev_Buzzer
 from PiicoDev_CAP1203 import PiicoDev_CAP1203
 from PiicoDev_VEML6040 import PiicoDev_VEML6040
 from http_server import Server
+from credentials import username, password
 import _thread
 
 led = Pin("LED", Pin.OUT)
@@ -47,13 +48,7 @@ def main():
 def connect_to_wifi():
     nic = network.WLAN(network.WLAN.IF_STA)
     nic.active(True)
-    nic.connect('<>', '<>')
-    attempts = 0
-    while not nic.isconnected():
-        if attempts > 3:
-            raise(Exception('could not connect to wifi'))
-        sleep_ms(400)
-        attempts += 1
+    nic.connect(username, password)
     print('connected to wifi!')
     print(nic.ifconfig())
 
